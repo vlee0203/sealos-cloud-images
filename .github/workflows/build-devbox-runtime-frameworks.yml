@@ -19,8 +19,8 @@ env:
   SEALOS_VERSION: "5.0.1"
 
 jobs:
-  build:
-    name: Build devbox-runtime-frameworks
+  build-part1:
+    name: Build frameworks-part1
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -39,20 +39,50 @@ jobs:
         run: |
           sudo sealos login -u ${{ github.repository_owner }} -p ${{ secrets.GH_PAT }} ghcr.io
 
-      - name: Build and push frameworks (amd64)
-        working-directory: devbox-runtime/frameworks/deploy
+      - name: Build and push frameworks-part1
+        working-directory: devbox-runtime/frameworks/part1/deploy
         run: |
           TAG=${{ steps.tag.outputs.tag }}
           IMAGE=${{ env.REGISTRY }}/${{ env.OWNER }}/sealos-cloud-images/devbox-runtime-frameworks
-          sudo sealos build -t ${IMAGE}:${TAG} --platform linux/amd64 -f Kubefile .
+          sudo sealos build -t ${IMAGE}:${TAG}-part1 --platform linux/amd64 -f Kubefile .
           sudo rm -rf registry
           PUSH=${{ github.event_name == 'push' || inputs.push_image == true }}
 
           if [ "$PUSH" = "true" ]; then
-            sudo sealos push ${IMAGE}:${TAG}
-            sudo sealos tag ${IMAGE}:${TAG} ${IMAGE}:latest
-            sudo sealos push ${IMAGE}:latest
+            sudo sealos push ${IMAGE}:${TAG}-part1
+            echo "${IMAGE}:${TAG}-part1 push success"
+          fi
 
-            echo "${IMAGE}:${TAG} push success"
-            echo "${IMAGE}:latest push success"
+  build-part2:
+    name: Build frameworks-part2
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate image tag
+        id: tag
+        run: echo "tag=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Install sealos ${{ env.SEALOS_VERSION }}
+        run: |
+          curl -sL https://github.com/labring/sealos/releases/download/v${{ env.SEALOS_VERSION }}/sealos_${{ env.SEALOS_VERSION }}_linux_amd64.tar.gz | sudo tar -xz -C /usr/bin sealos
+          sealos version
+
+      - name: Sealos login to ghcr.io
+        run: |
+          sudo sealos login -u ${{ github.repository_owner }} -p ${{ secrets.GH_PAT }} ghcr.io
+
+      - name: Build and push frameworks-part2
+        working-directory: devbox-runtime/frameworks/part2/deploy
+        run: |
+          TAG=${{ steps.tag.outputs.tag }}
+          IMAGE=${{ env.REGISTRY }}/${{ env.OWNER }}/sealos-cloud-images/devbox-runtime-frameworks
+          sudo sealos build -t ${IMAGE}:${TAG}-part2 --platform linux/amd64 -f Kubefile .
+          sudo rm -rf registry
+          PUSH=${{ github.event_name == 'push' || inputs.push_image == true }}
+
+          if [ "$PUSH" = "true" ]; then
+            sudo sealos push ${IMAGE}:${TAG}-part2
+            echo "${IMAGE}:${TAG}-part2 push success"
           fi
