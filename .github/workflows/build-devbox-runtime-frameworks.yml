@@ -44,40 +44,14 @@ jobs:
         run: |
           TAG=${{ steps.tag.outputs.tag }}
           IMAGE=${{ env.REGISTRY }}/${{ env.OWNER }}/sealos-cloud-images/devbox-runtime-frameworks
-          sudo sealos build -t ${IMAGE}:${TAG}-amd64 --platform linux/amd64 -f Kubefile .
-          sudo sealos push ${IMAGE}:${TAG}-amd64
+          sudo sealos build -t ${IMAGE}:${TAG} --platform linux/amd64 -f Kubefile .
           sudo rm -rf registry
-
-      - name: Build and push frameworks (arm64)
-        working-directory: devbox-runtime/frameworks/deploy
-        run: |
-          TAG=${{ steps.tag.outputs.tag }}
-          IMAGE=${{ env.REGISTRY }}/${{ env.OWNER }}/sealos-cloud-images/devbox-runtime-frameworks
-          sudo sealos build -t ${IMAGE}:${TAG}-arm64 --platform linux/arm64 -f Kubefile .
-          sudo sealos push ${IMAGE}:${TAG}-arm64
-          sudo rm -rf registry
-
-      - name: Create and push manifest
-        run: |
-          TAG=${{ steps.tag.outputs.tag }}
-          IMAGE=${{ env.REGISTRY }}/${{ env.OWNER }}/sealos-cloud-images/devbox-runtime-frameworks
           PUSH=${{ github.event_name == 'push' || inputs.push_image == true }}
 
           if [ "$PUSH" = "true" ]; then
-            sudo sealos manifest create ${IMAGE}:${TAG}
-            sudo sealos manifest add ${IMAGE}:${TAG} docker://${IMAGE}:${TAG}-amd64
-            sudo sealos manifest add ${IMAGE}:${TAG} docker://${IMAGE}:${TAG}-arm64
-            sudo sealos manifest push --all ${IMAGE}:${TAG} docker://${IMAGE}:${TAG}
-
-            sudo sealos tag ${IMAGE}:${TAG}-amd64 ${IMAGE}:latest-amd64
-            sudo sealos tag ${IMAGE}:${TAG}-arm64 ${IMAGE}:latest-arm64
-            sudo sealos push ${IMAGE}:latest-amd64
-            sudo sealos push ${IMAGE}:latest-arm64
-
-            sudo sealos manifest create ${IMAGE}:latest
-            sudo sealos manifest add ${IMAGE}:latest docker://${IMAGE}:latest-amd64
-            sudo sealos manifest add ${IMAGE}:latest docker://${IMAGE}:latest-arm64
-            sudo sealos manifest push --all ${IMAGE}:latest docker://${IMAGE}:latest
+            sudo sealos push ${IMAGE}:${TAG}
+            sudo sealos tag ${IMAGE}:${TAG} ${IMAGE}:latest
+            sudo sealos push ${IMAGE}:latest
 
             echo "${IMAGE}:${TAG} push success"
             echo "${IMAGE}:latest push success"
