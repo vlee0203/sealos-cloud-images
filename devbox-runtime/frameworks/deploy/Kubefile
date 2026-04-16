@@ -1,0 +1,4 @@
+FROM scratch
+COPY images ./images
+COPY registry ./registry
+CMD ["echo done"]

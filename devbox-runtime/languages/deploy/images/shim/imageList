@@ -1,0 +1,15 @@
+ghcr.io/labring-actions/devbox/python-3.12:v0.2.1
+ghcr.io/labring-actions/devbox/python-3.11:v0.2.0
+ghcr.io/labring-actions/devbox/python-3.10:v0.2.0
+ghcr.io/labring-actions/devbox/node.js-18:v0.1.1
+ghcr.io/labring-actions/devbox/node.js-20:v0.1.1
+ghcr.io/labring-actions/devbox/node.js-22:v0.1.1
+ghcr.io/labring-actions/devbox/go-1.22.5:v0.1.1
+ghcr.io/labring-actions/devbox/go-1.23.0:v0.1.1
+ghcr.io/labring-actions/devbox/net-8.0:v0.1.1
+ghcr.io/labring-actions/devbox/c-gcc-12.2.0:v0.1.1
+ghcr.io/labring-actions/devbox/cpp-gcc-12.2.0:v0.1.1
+ghcr.io/labring-actions/devbox/java-openjdk17:v0.1.1
+ghcr.io/labring-actions/devbox/rust-1.81.0:v0.1.1
+ghcr.io/labring-actions/devbox/php-7.4:v0.1.1
+ghcr.io/labring-actions/devbox/php-8.2:v0.2.1
