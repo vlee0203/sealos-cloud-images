@@ -1,10 +1,6 @@
 name: Build devbox-runtime-frameworks
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "devbox-runtime/frameworks/**"
   workflow_dispatch:
     inputs:
       push_image:
@@ -12,6 +8,10 @@ on:
         required: false
         type: boolean
         default: true
+
+permissions:
+  contents: read
+  packages: write
 
 env:
   REGISTRY: ghcr.io
@@ -37,14 +37,14 @@ jobs:
 
       - name: Sealos login to ghcr.io
         run: |
-          sudo sealos login -u ${{ github.repository_owner }} -p ${{ secrets.GH_PAT }} ghcr.io
+          echo "${{ secrets.GITHUB_TOKEN }}" | sudo sealos login -u ${{ github.repository_owner }} --password-stdin ghcr.io
 
       - name: Build and push frameworks-part1
         working-directory: devbox-runtime/frameworks/part1/deploy
         run: |
           TAG=${{ steps.tag.outputs.tag }}
           IMAGE=${{ env.REGISTRY }}/${{ env.OWNER }}/sealos-cloud-images/devbox-runtime-frameworks
-          sudo sealos build -t ${IMAGE}:${TAG}-part1 --platform linux/amd64 -f Kubefile .
+          sudo sealos build -t ${IMAGE}:${TAG}-part1 --isolation=chroot --platform linux/amd64 -f Kubefile .
           sudo rm -rf registry
           PUSH=${{ github.event_name == 'push' || inputs.push_image == true }}
 
@@ -71,14 +71,14 @@ jobs:
 
       - name: Sealos login to ghcr.io
         run: |
-          sudo sealos login -u ${{ github.repository_owner }} -p ${{ secrets.GH_PAT }} ghcr.io
+          echo "${{ secrets.GITHUB_TOKEN }}" | sudo sealos login -u ${{ github.repository_owner }} --password-stdin ghcr.io
 
       - name: Build and push frameworks-part2
         working-directory: devbox-runtime/frameworks/part2/deploy
         run: |
           TAG=${{ steps.tag.outputs.tag }}
           IMAGE=${{ env.REGISTRY }}/${{ env.OWNER }}/sealos-cloud-images/devbox-runtime-frameworks
-          sudo sealos build -t ${IMAGE}:${TAG}-part2 --platform linux/amd64 -f Kubefile .
+          sudo sealos build -t ${IMAGE}:${TAG}-part2 --isolation=chroot --platform linux/amd64 -f Kubefile .
           sudo rm -rf registry
           PUSH=${{ github.event_name == 'push' || inputs.push_image == true }}
 
