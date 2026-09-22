@@ -1,0 +1,150 @@
+name: Build Component Cluster Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: "组件名（applications/ 下的目录名，如 higress）"
+        required: true
+        type: string
+      version:
+        description: "镜像 tag（如 v2.2.4），需与该组件 charts/ 里的 chart 版本一致"
+        required: true
+        type: string
+      arch:
+        description: "目标架构"
+        required: true
+        type: choice
+        default: both
+        options:
+          - both
+          - amd64
+          - arm64
+      push:
+        description: "构建后推送到 registry（关闭则只构建，用于验证配方）"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-${{ inputs.component }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  REPO: vlee0203/sealos-cloud-images
+  SEALOS_VERSION: "5.0.1"
+
+jobs:
+  resolve:
+    name: Resolve target arches
+    runs-on: ubuntu-24.04
+    outputs:
+      arches: ${{ steps.pick.outputs.arches }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick target arches
+        id: pick
+        env:
+          ARCH: ${{ inputs.arch }}
+        run: |
+          set -euo pipefail
+
+          case "${ARCH}" in
+            both)  echo 'arches=["amd64","arm64"]' >> "$GITHUB_OUTPUT" ;;
+            amd64) echo 'arches=["amd64"]' >> "$GITHUB_OUTPUT" ;;
+            arm64) echo 'arches=["arm64"]' >> "$GITHUB_OUTPUT" ;;
+            *)     echo "::error::arch 只能是 both / amd64 / arm64"; exit 1 ;;
+          esac
+
+  build:
+    name: Build ${{ inputs.component }}:${{ inputs.version }} (${{ matrix.arch }})
+    needs: resolve
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(needs.resolve.outputs.arches) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install sealos
+        env:
+          SV: ${{ env.SEALOS_VERSION }}
+        run: |
+          set -euo pipefail
+          wget -q "https://github.com/labring/sealos/releases/download/v${SV}/sealos_${SV}_linux_amd64.tar.gz"
+          tar -zxf "sealos_${SV}_linux_amd64.tar.gz" sealos
+          sudo install -m 0755 sealos /usr/local/bin/sealos
+          sealos version
+
+      - name: Build cluster image
+        env:
+          RECIPE: applications/${{ inputs.component }}
+          COMPONENT: ${{ inputs.component }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          rm -rf "${RECIPE}/registry"
+          IMG="${REGISTRY}/${REPO}/${COMPONENT}:${VERSION}-${{ matrix.arch }}"
+          echo "IMG=${IMG}" >> "$GITHUB_ENV"
+          sudo sealos build -t "${IMG}" \
+            --isolation=chroot \
+            --platform "linux/${{ matrix.arch }}" \
+            -f "${RECIPE}/Kubefile" "${RECIPE}"
+
+      - name: Login to registry
+        if: ${{ inputs.push }}
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            sudo sealos login -u "${{ github.actor }}" --password-stdin "${REGISTRY}"
+
+      - name: Push arch-specific image
+        if: ${{ inputs.push }}
+        run: |
+          set -euo pipefail
+          sudo sealos push "${IMG}"
+
+  manifest:
+    name: Create multi-arch manifest
+    needs: [resolve, build]
+    # 单架构不需要 manifest，未推送也不需要
+    if: ${{ inputs.push && inputs.arch == 'both' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install sealos
+        env:
+          SV: ${{ env.SEALOS_VERSION }}
+        run: |
+          set -euo pipefail
+          wget -q "https://github.com/labring/sealos/releases/download/v${SV}/sealos_${SV}_linux_amd64.tar.gz"
+          tar -zxf "sealos_${SV}_linux_amd64.tar.gz" sealos
+          sudo install -m 0755 sealos /usr/local/bin/sealos
+          sealos version
+
+      - name: Login to registry
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            sudo sealos login -u "${{ github.actor }}" --password-stdin "${REGISTRY}"
+
+      - name: Create and push manifest
+        env:
+          COMPONENT: ${{ inputs.component }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          LIST="${REGISTRY}/${REPO}/${COMPONENT}:${VERSION}"
+
+          sudo sealos manifest create "${LIST}"
+          sudo sealos manifest add "${LIST}" "docker://${LIST}-amd64"
+          sudo sealos manifest add "${LIST}" "docker://${LIST}-arm64"
+
+          sudo sealos manifest push --all "${LIST}" "docker://${LIST}"
+          sudo sealos manifest inspect "${LIST}"

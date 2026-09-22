@@ -1,0 +1,31 @@
+# =============================================================================
+# Sealos 集群镜像 Kubefile（作用类似 Dockerfile）
+#
+# 应用镜像（application）：FROM scratch，仅携带应用资源，
+# 运行时叠加到已存在的 K8s 集群上执行 CMD。
+# =============================================================================
+
+FROM scratch
+
+# ---- 镜像元信息 -------------------------------------------------------------
+# sealos.io.type: rootfs(集群基础镜像) | application(应用镜像) | patch(补丁镜像)
+LABEL sealos.io.type="application"
+LABEL sealos.io.version="v1beta1"
+LABEL org.opencontainers.image.description="Higress gateway for Sealos Cloud"
+
+# ---- 环境变量（可在此覆盖 rootfs 默认参数或定义应用级变量） ------------------
+ENV CLOUD_DOMAIN=""
+ENV CLOUD_PORT=""
+
+# ---- 拷贝应用资源（按需增删） -------------------------------------------------
+COPY charts ./charts
+COPY install.sh ./install.sh
+
+# 必须拷贝 registry 目录（sealos build 时自动生成的镜像仓库数据），
+# 否则集群内没有容器镜像可用
+COPY registry ./registry
+
+# ---- 启动命令 ----------------------------------------------------------------
+# 镜像运行（sealos run）时执行的命令。
+# 若通过 sealos run --cmd 指定了命令，CMD 会被覆盖。
+CMD ["bash install.sh"]

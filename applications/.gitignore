@@ -1,0 +1,9 @@
+# sealos build 自动生成的镜像仓库数据，体积大且可再生成，不要提交
+registry/
+
+# 构建临时产物
+*.tar.gz
+*.tgz
+
+# 系统文件
+.DS_Store
